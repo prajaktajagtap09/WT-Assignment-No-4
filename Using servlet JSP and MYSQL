@@ -1,0 +1,202 @@
+
+index.jsp
+<%@ page language="java" contentType="text/html; charset=ISO-8859-1"
+    pageEncoding="ISO-8859-1"%>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>Login Application</title>
+</head>
+<body>
+    <form action="loginServlet" method="post">
+        <fieldset style="width: 300px">
+            <legend> Login to App </legend>
+            <table>
+                <tr>
+                    <td>User ID</td>
+                    <td><input type="text" name="username" required="required" /></td>
+                </tr>
+                <tr>
+                    <td>Password</td>
+                    <td><input type="password" name="userpass" required="required" /></td>
+                </tr>
+                <tr>
+                    <td><input type="submit" value="Login" /></td>
+                </tr>
+            </table>
+        </fieldset>
+    </form>
+</body>
+</html>
+
+
+
+
+
+
+welcome.jsp
+<%@ page language="java" contentType="text/html; charset=ISO-8859-1"
+    pageEncoding="ISO-8859-1"%>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>Welcome <%=session.getAttribute("name")%></title>
+</head>
+<body>
+    <h3>Login successful!!!</h3>
+    <h4>
+        Hello,
+        <%=session.getAttribute("name")%></h4>
+</body>
+</html>
+
+
+
+
+
+
+
+
+Now, lets create the login DAO which will enable us to connect our login application with mysql database and execute the query to the DB.
+
+LoginDao.java
+package com.amzi.dao;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+public class LoginDao {
+    public static boolean validate(String name, String pass) {        
+        boolean status = false;
+        Connection conn = null;
+        PreparedStatement pst = null;
+        ResultSet rs = null;
+
+        String url = "jdbc:mysql://localhost:3306/";
+        String dbName = "form";
+        String driver = "com.mysql.jdbc.Driver";
+        String userName = "root";
+        String password = "password";
+        try {
+            Class.forName(driver).newInstance();
+            conn = DriverManager
+                    .getConnection(url + dbName, userName, password);
+
+            pst = conn
+                    .prepareStatement("select * from login where user=? and password=?");
+            pst.setString(1, name);
+            pst.setString(2, pass);
+
+            rs = pst.executeQuery();
+            status = rs.next();
+
+        } catch (Exception e) {
+            System.out.println(e);
+        } finally {
+            if (conn != null) {
+                try {
+                    conn.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+            if (pst != null) {
+                try {
+                    pst.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+            if (rs != null) {
+                try {
+                    rs.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        return status;
+    }
+}
+
+
+
+
+Now, we are going to create the servlet which will capture the input parameter from the jsp and validate it against the LoginDao.
+
+LoginServlet.java
+package com.amzi.servlets;
+
+import java.io.IOException;
+import java.io.PrintWriter;
+
+import javax.servlet.RequestDispatcher;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
+import com.amzi.dao.LoginDao;
+
+public class LoginServlet extends HttpServlet{
+
+    private static final long serialVersionUID = 1L;
+
+    public void doPost(HttpServletRequest request, HttpServletResponse response)  
+            throws ServletException, IOException {  
+
+        response.setContentType("text/html");  
+        PrintWriter out = response.getWriter();  
+        
+        String n=request.getParameter("username");  
+        String p=request.getParameter("userpass"); 
+        
+        HttpSession session = request.getSession(false);
+        if(session!=null)
+        session.setAttribute("name", n);
+
+        if(LoginDao.validate(n, p)){  
+            RequestDispatcher rd=request.getRequestDispatcher("welcome.jsp");  
+            rd.forward(request,response);  
+        }  
+        else{  
+            out.print("<p style=\"color:red\">Sorry username or password error</p>");  
+            RequestDispatcher rd=request.getRequestDispatcher("index.jsp");  
+            rd.include(request,response);  
+        }  
+
+        out.close();  
+    }  
+} 
+
+
+
+
+
+
+Finally, lets configure the web.xml file for servlet and welcome file configuration.
+
+web.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app
+    xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://java.sun.com/xml/ns/javaee"
+    version="2.5">
+    <servlet>
+        <servlet-name>login</servlet-name>
+        <servlet-class>com.amzi.servlets.LoginServlet</servlet-class>
+    </servlet>
+
+    <servlet-mapping>
+        <servlet-name>login</servlet-name>
+        <url-pattern>/loginServlet</url-pattern>
+    </servlet-mapping>
+
+    <welcome-file-list>
+        <welcome-file>index.jsp</welcome-file>
+    </welcome-file-list>
+</web-app>
